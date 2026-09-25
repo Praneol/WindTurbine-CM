@@ -1,0 +1,21 @@
+Dataset: Fraunhofer CARE to Compare
+Purpose: Wind turbine anomaly detection and predictive maintenance
+Official DOI: 10.5281/zenodo.15846963
+Official source: https://zenodo.org/records/15846963
+Archive: CARE_To_Compare.zip
+Archive size: approximately 5.5 GB
+Datasets: 95
+Turbines: 36
+Turbine-years: 89
+Wind farms: 3
+Anomalous datasets: 45
+Normal datasets: 50
+
+Project use:
+1. Data preprocessing
+2. Operating-regime analysis
+3. Anomaly detection
+4. Early fault detection
+5. Residual forecasting
+6. Uncertainty estimation
+7. Predictive maintenance

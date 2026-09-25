@@ -1,0 +1,205 @@
+            <span>Power Output</span>
+            <strong>{sensorData.power_output} MW</strong>
+            <small>Live generation</small>
+          </div>
+
+        </div>
+      </div>
+
+      
+
+        <div style={{ width: "100%", height: "300px" }}>
+          {vibrationChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={vibrationChartData}
+                margin={{
+                  top: 10,
+                  right: 20,
+                  left: 0,
+                  bottom: 10,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis
+                  dataKey="reading"
+                  label={{
+                    value: "Recent Readings",
+                    position: "insideBottom",
+                    offset: -5,
+                  }}
+                />
+
+                <YAxis
+                  label={{
+                    value: "Vibration (mm/s)",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
+
+                <Tooltip />
+
+                <Line
+                  type="monotone"
+                  dataKey="vibration"
+                  stroke="#2563eb"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div
+              style={{
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <p>Waiting for vibration history...</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <h3>Wind Speed Trend</h3>
+            <p>Recent wind speed measurements from the turbine</p>
+          </div>
+
+          <Wind size={20} />
+        </div>
+
+        <div style={{ width: "100%", height: "300px" }}>
+          {windSpeedChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={windSpeedChartData}
+                margin={{
+                  top: 10,
+                  right: 20,
+                  left: 0,
+                  bottom: 10,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis
+                  dataKey="reading"
+                  label={{
+                    value: "Recent Readings",
+                    position: "insideBottom",
+                    offset: -5,
+                  }}
+                />
+
+                <YAxis
+                  label={{
+                    value: "Wind Speed (m/s)",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
+
+                <Tooltip />
+
+                <Line
+                  type="monotone"
+                  dataKey="windSpeed"
+                  stroke="#0ea5e9"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div
+              style={{
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <p>Waiting for wind speed history...</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <div>
+            <h3>Gearbox Temperature Trend</h3>
+            <p>Recent gearbox thermal measurements from the turbine</p>
+          </div>
+
+          <Thermometer size={20} />
+        </div>
+
+        <div style={{ width: "100%", height: "300px" }}>
+          {gearboxTemperatureChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={gearboxTemperatureChartData}
+                margin={{
+                  top: 10,
+                  right: 20,
+                  left: 0,
+                  bottom: 10,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+
+                <XAxis
+                  dataKey="reading"
+                  label={{
+                    value: "Recent Readings",
+                    position: "insideBottom",
+                    offset: -5,
+                  }}
+                />
+
+                <YAxis
+                  label={{
+                    value: "Temperature (°C)",
+                    angle: -90,
+                    position: "insideLeft",
+                  }}
+                />
+
+                <Tooltip />
+
+                <Line
+                  type="monotone"
+                  dataKey="gearboxTemperature"
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div
+              style={{
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <p>Waiting for gearbox temperature history...</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      
