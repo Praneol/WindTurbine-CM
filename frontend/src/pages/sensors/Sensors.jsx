@@ -1,394 +1,793 @@
-
 import { useEffect, useState } from "react";
 
-import {
-  Activity,
-  Wind,
-  Gauge,
-  Thermometer,
-  Radio,
-  Zap,
-  RefreshCw,
-  Wifi,
-} from "lucide-react";
-
-import {
-  getLatestSensorData,
-  getSensorHistory,
-} from "../../services/api";
+const API = "http://127.0.0.1:8000";
 
 function Sensors() {
-  const [sensorData, setSensorData] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [hardware, setHardware] = useState(null);
+  const [prediction, setPrediction] = useState(null);
+  const [connected, setConnected] = useState(false);
 
-  const loadSensors = async () => {
+  const loadData = async () => {
     try {
-      const latest = await getLatestSensorData();
-      const historical = await getSensorHistory();
+      const [hardwareRes, predictionRes] = await Promise.all([
+        fetch(`${API}/api/hardware/latest`),
+        fetch(`${API}/api/hardware/prediction`),
+      ]);
 
-      setSensorData(latest);
-      setHistory(historical || []);
-      setLastUpdated(new Date());
-      setLoading(false);
+      if (!hardwareRes.ok || !predictionRes.ok) {
+        throw new Error("Backend unavailable");
+      }
+
+      const hardwareData = await hardwareRes.json();
+      const predictionData = await predictionRes.json();
+
+      setHardware(hardwareData);
+      setPrediction(predictionData);
+      setConnected(true);
     } catch (error) {
       console.error("Sensor API error:", error);
-      setLoading(false);
+      setConnected(false);
     }
   };
 
   useEffect(() => {
-    loadSensors();
+    loadData();
 
-    const interval = setInterval(loadSensors, 5000);
+    const interval = setInterval(loadData, 1000);
 
     return () => clearInterval(interval);
   }, []);
 
-  if (loading || !sensorData) {
-    return (
-      <div className="min-h-screen bg-sky-50 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw
-            size={40}
-            className="mx-auto text-blue-600 animate-spin mb-3"
-          />
+ 
+const data = hardware?.sensor_data || {};
+  const accX = Number(data.acc_x || 0);
+  const accY = Number(data.acc_y || 0);
+  const accZ = Number(data.acc_z || 0);
 
-          <p className="text-slate-600">
-            Connecting to live sensor network...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const gyroX = Number(data.gyro_x || 0);
+  const gyroY = Number(data.gyro_y || 0);
+  const gyroZ = Number(data.gyro_z || 0);
 
-  const sensorCards = [
-    {
-      name: "Wind Speed",
-      value: sensorData.wind_speed,
-      unit: "m/s",
-      icon: Wind,
-    },
-    {
-      name: "Rotor Speed",
-      value: sensorData.rotor_speed,
-      unit: "RPM",
-      icon: Gauge,
-    },
-    {
-      name: "Gearbox Temperature",
-      value: sensorData.gearbox_temperature,
-      unit: "°C",
-      icon: Thermometer,
-    },
-    {
-      name: "Generator Temperature",
-      value: sensorData.generator_temperature,
-      unit: "°C",
-      icon: Thermometer,
-    },
-    {
-      name: "Vibration",
-      value: sensorData.vibration,
-      unit: "mm/s",
-      icon: Activity,
-    },
-    {
-      name: "Acoustic Level",
-      value: sensorData.acoustic_level,
-      unit: "dB",
-      icon: Radio,
-    },
-    {
-      name: "Power Output",
-      value: sensorData.power_output,
-      unit: "MW",
-      icon: Zap,
-    },
-  ];
+  const sound = Number(data.sound || 0);
+
+  const accelerationMagnitude = Math.sqrt(
+    accX * accX +
+    accY * accY +
+    accZ * accZ
+  );
+
+  const gyroscopeMagnitude = Math.sqrt(
+    gyroX * gyroX +
+    gyroY * gyroY +
+    gyroZ * gyroZ
+  );
+
+  const ai = prediction?.hardware_ai || {};
+
+const predictionText =
+  ai.prediction || "WAITING";
+
+const risk =
+  ai.risk_level || "LOW";
+
+const anomalyScore =
+  ai.anomaly_score !== undefined
+    ? Number(ai.anomaly_score).toFixed(3)
+    : "--";
+
+const decisionScore =
+  ai.decision_score !== undefined
+    ? Number(ai.decision_score).toFixed(3)
+    : "--";
+
+const samplingRate =
+  ai.sampling_rate_hz || 100;
+
+
+
+  const conditionClass =
+    predictionText === "ANOMALY"
+      ? "danger"
+      : predictionText === "NORMAL"
+      ? "normal"
+      : "waiting";
+
+  const riskClass =
+    risk === "HIGH"
+      ? "danger"
+      : risk === "MEDIUM"
+      ? "warning"
+      : "normal";
 
   return (
-    <div className="min-h-screen bg-sky-50 p-4 md:p-6">
+    <div className="sensor-page">
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <style>{`
 
-        <div className="flex items-center gap-3">
+        .sensor-page {
+          min-height: calc(100vh - 80px);
+          padding: 28px;
+          background:
+            linear-gradient(
+              180deg,
+              #eff9ff 0%,
+              #f8fcff 45%,
+              #ffffff 100%
+            );
+          color: #0f172a;
+          font-family: Inter, Arial, sans-serif;
+        }
 
-          <div className="bg-blue-600 text-white p-3 rounded-xl shadow-sm">
-            <Activity size={28} />
+        .sensor-container {
+          width: 100%;
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+
+        .sensor-header {
+          background: rgba(255,255,255,.88);
+          border: 1px solid #dbe5ee;
+          border-radius: 24px;
+          padding: 26px;
+          margin-bottom: 22px;
+          box-shadow: 0 20px 50px rgba(15,23,42,.07);
+          backdrop-filter: blur(18px);
+        }
+
+        .live-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 7px 12px;
+          border-radius: 999px;
+          background: #ecfdf5;
+          color: #047857;
+          border: 1px solid #bbf7d0;
+          font-size: 12px;
+          font-weight: 700;
+          margin-bottom: 12px;
+        }
+
+        .live-pill.offline {
+          background: #fef2f2;
+          color: #b91c1c;
+          border-color: #fecaca;
+        }
+
+        .live-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #10b981;
+        }
+
+        .offline .live-dot {
+          background: #ef4444;
+        }
+
+        .sensor-title {
+          margin: 0;
+          font-size: 32px;
+          font-weight: 800;
+          letter-spacing: -.8px;
+        }
+
+        .sensor-subtitle {
+          margin: 8px 0 0;
+          color: #64748b;
+          font-size: 14px;
+        }
+
+        .overview-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+          margin-bottom: 22px;
+        }
+
+        .card {
+          background: rgba(255,255,255,.88);
+          border: 1px solid #dbe5ee;
+          border-radius: 20px;
+          padding: 20px;
+          box-shadow: 0 18px 40px rgba(15,23,42,.06);
+          backdrop-filter: blur(16px);
+        }
+
+        .label {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .value {
+          margin-top: 8px;
+          font-size: 26px;
+          font-weight: 800;
+        }
+
+        .normal {
+          color: #059669;
+        }
+
+        .warning {
+          color: #d97706;
+        }
+
+        .danger {
+          color: #dc2626;
+        }
+
+        .waiting {
+          color: #64748b;
+        }
+
+        .section {
+          margin-bottom: 22px;
+        }
+
+        .section-title {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 800;
+        }
+
+        .section-subtitle {
+          margin: 5px 0 18px;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+        .sensor-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
+        }
+
+        .sensor-card {
+          padding: 18px;
+          border-radius: 17px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+        }
+
+        .sensor-card-title {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .sensor-card-value {
+          margin-top: 9px;
+          font-size: 22px;
+          font-weight: 800;
+        }
+
+        .sensor-card-unit {
+          margin-top: 4px;
+          color: #94a3b8;
+          font-size: 11px;
+        }
+
+        .axis-layout {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 22px;
+        }
+
+        .axis-list {
+          display: grid;
+          gap: 12px;
+        }
+
+        .axis-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 15px;
+          border-radius: 14px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+        }
+
+        .axis-name {
+          font-size: 13px;
+          color: #64748b;
+          font-weight: 700;
+        }
+
+        .axis-value {
+          font-size: 16px;
+          font-weight: 800;
+        }
+
+        .ai-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+        }
+
+        .ai-card {
+          padding: 18px;
+          border-radius: 17px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+        }
+
+        .ai-card span {
+          display: block;
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .ai-card strong {
+          display: block;
+          margin-top: 8px;
+          font-size: 19px;
+        }
+
+        .pipeline {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 10px;
+        }
+
+        .pipeline-step {
+          position: relative;
+          padding: 16px;
+          text-align: center;
+          border-radius: 15px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+        }
+
+        .pipeline-step strong {
+          display: block;
+          font-size: 13px;
+        }
+
+        .pipeline-step span {
+          display: block;
+          margin-top: 5px;
+          color: #64748b;
+          font-size: 11px;
+        }
+
+        .footer {
+          text-align: center;
+          padding: 12px;
+          color: #94a3b8;
+          font-size: 11px;
+        }
+
+        @media (max-width: 1000px) {
+          .overview-grid,
+          .ai-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .sensor-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .axis-layout {
+            grid-template-columns: 1fr;
+          }
+
+          .pipeline {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (max-width: 600px) {
+          .sensor-page {
+            padding: 14px;
+          }
+
+          .overview-grid,
+          .sensor-grid,
+          .ai-grid,
+          .pipeline {
+            grid-template-columns: 1fr;
+          }
+
+          .sensor-title {
+            font-size: 25px;
+          }
+        }
+
+      `}</style>
+
+      <div className="sensor-container">
+
+        {/* HEADER */}
+
+        <div className="sensor-header">
+
+          <div className={`live-pill ${!connected ? "offline" : ""}`}>
+            <span className="live-dot"></span>
+            {connected
+              ? "LIVE SENSOR STREAM"
+              : "BACKEND OFFLINE"}
           </div>
 
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800">
-              Live Sensor Monitoring
-            </h1>
+          <h1 className="sensor-title">
+            Live Sensor Intelligence
+          </h1>
 
-            <p className="text-slate-500">
-              Real-time turbine telemetry and sensor intelligence
-            </p>
+          <p className="sensor-subtitle">
+            Real-time ESP8266 telemetry from MPU6050 vibration
+            and MAX4466 acoustic sensing
+          </p>
+
+        </div>
+
+
+        {/* OVERVIEW */}
+
+        <div className="overview-grid">
+
+          <div className="card">
+            <div className="label">
+              Sensor System
+            </div>
+
+            <div className={`value ${connected ? "normal" : "danger"}`}>
+              {connected ? "ONLINE" : "OFFLINE"}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="label">
+              Sampling Rate
+            </div>
+
+            <div className="value">
+              {samplingRate} Hz
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="label">
+              Acceleration
+            </div>
+
+            <div className="value">
+              {accelerationMagnitude.toFixed(2)}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="label">
+              Acoustic Signal
+            </div>
+
+            <div className="value">
+              {sound.toFixed(0)} ADC
+            </div>
           </div>
 
         </div>
 
-        <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-xl px-4 py-3 shadow-sm">
 
-          <Wifi
-            size={18}
-            className="text-emerald-500"
-          />
+        {/* ACCELERATION */}
 
-          <span className="text-sm font-semibold text-slate-700">
-            LIVE
-          </span>
+        <div className="card section">
 
-          {lastUpdated && (
-            <span className="text-xs text-slate-400">
-              Updated {lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
+          <h2 className="section-title">
+            MPU6050 — Acceleration
+          </h2>
 
-        </div>
+          <p className="section-subtitle">
+            Mechanical vibration and movement measurements
+          </p>
 
-      </div>
+          <div className="sensor-grid">
 
-
-      {/* Sensor Network Status */}
-      <div className="bg-white border border-slate-300 rounded-2xl p-5 mb-6 shadow-sm">
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
-          <div>
-            <p className="text-sm text-slate-500">
-              Sensor Network
-            </p>
-
-            <h2 className="text-xl font-bold text-slate-800">
-              WT-001
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-2 text-emerald-600 font-semibold">
-
-            <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
-
-            All telemetry streams active
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-      {/* Sensor Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-
-        {sensorCards.map((sensor) => {
-
-          const Icon = sensor.icon;
-
-          return (
-            <div
-              key={sensor.name}
-              className="bg-white rounded-2xl border border-slate-300 shadow-sm p-5 hover:shadow-md transition"
-            >
-
-              <div className="flex items-center justify-between mb-5">
-
-                <div className="p-3 bg-sky-50 rounded-xl">
-                  <Icon
-                    size={23}
-                    className="text-blue-600"
-                  />
-                </div>
-
-                <span className="text-xs font-semibold text-emerald-600">
-                  ONLINE
-                </span>
-
+            <div className="sensor-card">
+              <div className="sensor-card-title">
+                ACCELERATION X
               </div>
 
-              <p className="text-sm text-slate-500">
-                {sensor.name}
-              </p>
+              <div className="sensor-card-value">
+                {accX.toFixed(3)}
+              </div>
 
-              <div className="flex items-baseline gap-2 mt-1">
+              <div className="sensor-card-unit">
+                m/s²
+              </div>
+            </div>
 
-                <span className="text-3xl font-bold text-slate-800">
-                  {Number(sensor.value).toFixed(2)}
+            <div className="sensor-card">
+              <div className="sensor-card-title">
+                ACCELERATION Y
+              </div>
+
+              <div className="sensor-card-value">
+                {accY.toFixed(3)}
+              </div>
+
+              <div className="sensor-card-unit">
+                m/s²
+              </div>
+            </div>
+
+            <div className="sensor-card">
+              <div className="sensor-card-title">
+                ACCELERATION Z
+              </div>
+
+              <div className="sensor-card-value">
+                {accZ.toFixed(3)}
+              </div>
+
+              <div className="sensor-card-unit">
+                m/s²
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* GYROSCOPE */}
+
+        <div className="card section">
+
+          <h2 className="section-title">
+            MPU6050 — Gyroscope
+          </h2>
+
+          <p className="section-subtitle">
+            Angular velocity measurements
+          </p>
+
+          <div className="sensor-grid">
+
+            <div className="sensor-card">
+              <div className="sensor-card-title">
+                GYRO X
+              </div>
+
+              <div className="sensor-card-value">
+                {gyroX.toFixed(3)}
+              </div>
+
+              <div className="sensor-card-unit">
+                rad/s
+              </div>
+            </div>
+
+            <div className="sensor-card">
+              <div className="sensor-card-title">
+                GYRO Y
+              </div>
+
+              <div className="sensor-card-value">
+                {gyroY.toFixed(3)}
+              </div>
+
+              <div className="sensor-card-unit">
+                rad/s
+              </div>
+            </div>
+
+            <div className="sensor-card">
+              <div className="sensor-card-title">
+                GYRO Z
+              </div>
+
+              <div className="sensor-card-value">
+                {gyroZ.toFixed(3)}
+              </div>
+
+              <div className="sensor-card-unit">
+                rad/s
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {/* SENSOR INTELLIGENCE */}
+
+        <div className="axis-layout section">
+
+          <div className="card">
+
+            <h2 className="section-title">
+              Vibration Intelligence
+            </h2>
+
+            <p className="section-subtitle">
+              Derived from live acceleration telemetry
+            </p>
+
+            <div className="axis-list">
+
+              <div className="axis-row">
+                <span className="axis-name">
+                  Acceleration Magnitude
                 </span>
 
-                <span className="text-sm text-slate-500">
-                  {sensor.unit}
+                <span className="axis-value">
+                  {accelerationMagnitude.toFixed(3)} m/s²
+                </span>
+              </div>
+
+              <div className="axis-row">
+                <span className="axis-name">
+                  Gyroscope Magnitude
                 </span>
 
+                <span className="axis-value">
+                  {gyroscopeMagnitude.toFixed(3)} rad/s
+                </span>
+              </div>
+
+              <div className="axis-row">
+                <span className="axis-name">
+                  Sampling Frequency
+                </span>
+
+                <span className="axis-value">
+                  {samplingRate} Hz
+                </span>
               </div>
 
             </div>
-          );
-        })}
-
-      </div>
-
-
-      {/* Telemetry History */}
-      <div className="bg-white rounded-2xl border border-slate-300 shadow-sm p-5 md:p-6">
-
-        {/* Table Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-
-          <div>
-
-            <h2 className="text-xl font-bold text-slate-800">
-              Telemetry History
-            </h2>
-
-            <p className="text-sm text-slate-500 mt-1">
-              Recent stored sensor readings from WT-001
-            </p>
 
           </div>
 
-          <span className="self-start sm:self-auto px-3 py-1.5 text-sm font-semibold rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-            {history.length} readings
-          </span>
+
+          <div className="card">
+
+            <h2 className="section-title">
+              Acoustic Intelligence
+            </h2>
+
+            <p className="section-subtitle">
+              MAX4466 raw acoustic signal
+            </p>
+
+            <div className="axis-list">
+
+              <div className="axis-row">
+                <span className="axis-name">
+                  Current ADC
+                </span>
+
+                <span className="axis-value">
+                  {sound.toFixed(0)}
+                </span>
+              </div>
+
+              <div className="axis-row">
+                <span className="axis-name">
+                  Sensor
+                </span>
+
+                <span className="axis-value">
+                  MAX4466
+                </span>
+              </div>
+
+              <div className="axis-row">
+                <span className="axis-name">
+                  Measurement
+                </span>
+
+                <span className="axis-value">
+                  Raw ADC
+                </span>
+              </div>
+
+            </div>
+
+          </div>
 
         </div>
 
 
-        {/* Table */}
-        {history.length === 0 ? (
+        {/* AI */}
 
-          <div className="text-center py-10 text-slate-500">
-            No historical sensor readings available.
-          </div>
+        <div className="card section">
 
-        ) : (
+          <h2 className="section-title">
+            AI Condition Assessment
+          </h2>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-300">
+          <p className="section-subtitle">
+            Live anomaly detection using the 100 Hz Isolation Forest model
+          </p>
 
-            <table className="w-full min-w-[1100px] border-collapse">
+          <div className="ai-grid">
 
-              {/* Header */}
-              <thead>
+            <div className="ai-card">
+              <span>AI CONDITION</span>
 
-                <tr className="bg-slate-100">
+              <strong className={conditionClass}>
+                {predictionText}
+              </strong>
+            </div>
 
-                  <th className="border border-slate-300 px-5 py-4 text-left text-xs font-bold text-slate-700">
-                    Time
-                  </th>
+            <div className="ai-card">
+              <span>RISK LEVEL</span>
 
-                  <th className="border border-slate-300 px-5 py-4 text-right text-xs font-bold text-slate-700">
-                    Wind
-                    <span className="block font-normal text-slate-500 mt-0.5">
-                      m/s
-                    </span>
-                  </th>
+              <strong className={riskClass}>
+                {risk}
+              </strong>
+            </div>
 
-                  <th className="border border-slate-300 px-5 py-4 text-right text-xs font-bold text-slate-700">
-                    Rotor
-                    <span className="block font-normal text-slate-500 mt-0.5">
-                      RPM
-                    </span>
-                  </th>
+            <div className="ai-card">
+              <span>ANOMALY SCORE</span>
 
-                  <th className="border border-slate-300 px-5 py-4 text-right text-xs font-bold text-slate-700">
-                    Gearbox
-                    <span className="block font-normal text-slate-500 mt-0.5">
-                      °C
-                    </span>
-                  </th>
-
-                  <th className="border border-slate-300 px-5 py-4 text-right text-xs font-bold text-slate-700">
-                    Generator
-                    <span className="block font-normal text-slate-500 mt-0.5">
-                      °C
-                    </span>
-                  </th>
-
-                  <th className="border border-slate-300 px-5 py-4 text-right text-xs font-bold text-slate-700">
-                    Vibration
-                    <span className="block font-normal text-slate-500 mt-0.5">
-                      mm/s
-                    </span>
-                  </th>
-
-                  <th className="border border-slate-300 px-5 py-4 text-right text-xs font-bold text-slate-700">
-                    Acoustic
-                    <span className="block font-normal text-slate-500 mt-0.5">
-                      dB
-                    </span>
-                  </th>
-
-                  <th className="border border-slate-300 px-5 py-4 text-right text-xs font-bold text-slate-700">
-                    Power
-                    <span className="block font-normal text-slate-500 mt-0.5">
-                      MW
-                    </span>
-                  </th>
-
-                </tr>
-
-              </thead>
-
-
-              {/* Data */}
-              <tbody>
-
-                {history.map((reading, index) => (
-
-                  <tr
-                    key={reading.id || index}
-                    className="hover:bg-blue-50 transition-colors"
-                  >
-
-                    <td className="border border-slate-300 px-5 py-4 text-sm text-slate-700 whitespace-nowrap">
-                      {reading.timestamp
-                        ? new Date(reading.timestamp).toLocaleTimeString()
-                        : "--"}
-                    </td>
-
-                    <td className="border border-slate-300 px-5 py-4 text-right text-sm font-medium text-slate-700">
-                      {Number(reading.wind_speed || 0).toFixed(2)}
-                    </td>
-
-                    <td className="border border-slate-300 px-5 py-4 text-right text-sm font-medium text-slate-700">
-                      {Number(reading.rotor_speed || 0).toFixed(2)}
-                    </td>
-
-                    <td className="border border-slate-300 px-5 py-4 text-right text-sm font-medium text-slate-700">
-                      {Number(reading.gearbox_temperature || 0).toFixed(2)}
-                    </td>
-
-                    <td className="border border-slate-300 px-5 py-4 text-right text-sm font-medium text-slate-700">
-                      {Number(reading.generator_temperature || 0).toFixed(2)}
-                    </td>
-
-                    <td className="border border-slate-300 px-5 py-4 text-right text-sm font-medium text-slate-700">
-                      {Number(reading.vibration || 0).toFixed(2)}
-                    </td>
-
-                    <td className="border border-slate-300 px-5 py-4 text-right text-sm font-medium text-slate-700">
-                      {Number(reading.acoustic_level || 0).toFixed(2)}
-                    </td>
-
-                    <td className="border border-slate-300 px-5 py-4 text-right text-sm font-semibold text-blue-600">
-                      {Number(reading.power_output || 0).toFixed(2)}
-                    </td>
-
-                  </tr>
-
-                ))}
-
-              </tbody>
-
-            </table>
+              <strong>
+                {anomalyScore}
+              </strong>
+            </div>
+            <div className="ai-card">
+  <span>DECISION SCORE</span>
+  <strong>{decisionScore}</strong>
+</div>
+            
 
           </div>
 
-        )}
+        </div>
+
+
+        {/* PIPELINE */}
+
+        <div className="card section">
+
+          <h2 className="section-title">
+            AERION Live Sensor Pipeline
+          </h2>
+
+          <p className="section-subtitle">
+            Hardware telemetry to AI condition assessment
+          </p>
+
+          <div className="pipeline">
+
+            <div className="pipeline-step">
+              <strong>MPU6050</strong>
+              <span>Vibration</span>
+            </div>
+
+            <div className="pipeline-step">
+              <strong>MAX4466</strong>
+              <span>Acoustic</span>
+            </div>
+
+            <div className="pipeline-step">
+              <strong>ESP8266</strong>
+              <span>100 Hz Stream</span>
+            </div>
+
+            <div className="pipeline-step">
+              <strong>FastAPI</strong>
+              <span>Processing</span>
+            </div>
+
+            <div className="pipeline-step">
+              <strong>Isolation Forest</strong>
+              <span>AI Detection</span>
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div className="footer">
+          AERION — WIND INTELLIGENCE • ESP8266 • MPU6050 • MAX4466 • FastAPI • Isolation Forest
+        </div>
 
       </div>
 
@@ -397,4 +796,3 @@ function Sensors() {
 }
 
 export default Sensors;
-

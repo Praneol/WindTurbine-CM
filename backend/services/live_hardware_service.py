@@ -5,18 +5,15 @@ from datetime import datetime
 from collections import deque
 
 # ============================================================
-# LIVE ESP8266 HARDWARE SERVICE
+# AERION LIVE HARDWARE SERVICE
 # ============================================================
 
 PORT = "COM3"
 BAUD_RATE = 115200
 
-# Keep recent sensor readings
-MAX_HISTORY = 5
+MAX_HISTORY = 100
 
-hardware_history = deque(
-    maxlen=MAX_HISTORY
-)
+hardware_history = deque(maxlen=MAX_HISTORY)
 
 latest_hardware_data = None
 
@@ -25,12 +22,199 @@ serial_connection = None
 
 
 # ============================================================
-# SERIAL READER
+# UPDATE SHARED HARDWARE DATA
+# ============================================================
+
+def update_hardware_data(data):
+
+    global latest_hardware_data
+
+    try:
+        # ----------------------------------------------------
+        # Basic sensor values
+        # ----------------------------------------------------
+
+        acc_x = float(data.get("acc_x", 0))
+        acc_y = float(data.get("acc_y", 0))
+        acc_z = float(data.get("acc_z", 0))
+
+        gyro_x = float(data.get("gyro_x", 0))
+        gyro_y = float(data.get("gyro_y", 0))
+
+        gyro_z = float(data.get("gyro_z", 0))
+
+        sound = float(data.get("sound", 0))
+
+        # ----------------------------------------------------
+        # Magnitudes
+        # ----------------------------------------------------
+
+        acc_magnitude = math.sqrt(
+            acc_x ** 2 +
+            acc_y ** 2 +
+            acc_z ** 2
+        )
+
+        gyro_magnitude = math.sqrt(
+            gyro_x ** 2 +
+            gyro_y ** 2 +
+            gyro_z ** 2
+        )
+
+        # ----------------------------------------------------
+        # Previous acceleration
+        # ----------------------------------------------------
+
+        previous_acc = None
+
+        if hardware_history:
+
+            previous_acc = hardware_history[-1].get(
+                "acc_magnitude"
+            )
+
+        if previous_acc is None:
+            acc_variation = 0.0
+        else:
+            acc_variation = abs(
+                acc_magnitude - previous_acc
+            )
+
+        # ----------------------------------------------------
+        # Add current values to temporary calculation history
+        # ----------------------------------------------------
+
+        acc_values = [
+            item.get("acc_magnitude", 0)
+            for item in hardware_history
+        ]
+
+        sound_values = [
+            item.get("sound", 0)
+            for item in hardware_history
+        ]
+
+        # Include current value
+        acc_values.append(acc_magnitude)
+        sound_values.append(sound)
+
+        # Exact 100-sample window
+        acc_values = acc_values[-100:]
+        sound_values = sound_values[-100:]
+
+        # ----------------------------------------------------
+        # Sound deviation
+        # Same concept as training pipeline
+        # ----------------------------------------------------
+
+        sound_mean = sum(sound_values) / len(sound_values)
+
+        sound_deviation = abs(
+            sound - sound_mean
+        )
+
+        # ----------------------------------------------------
+        # Vibration rolling standard deviation
+        # ----------------------------------------------------
+
+        if len(acc_values) > 1:
+
+            acc_mean = sum(acc_values) / len(acc_values)
+
+            acc_variance = sum(
+                (value - acc_mean) ** 2
+                for value in acc_values
+            ) / (len(acc_values) - 1)
+
+            vibration_rolling_std = math.sqrt(
+                acc_variance
+            )
+
+        else:
+
+            vibration_rolling_std = 0.0
+
+        # ----------------------------------------------------
+        # Sound rolling standard deviation
+        # ----------------------------------------------------
+
+        if len(sound_values) > 1:
+
+            sound_variance = sum(
+                (value - sound_mean) ** 2
+                for value in sound_values
+            ) / (len(sound_values) - 1)
+
+            sound_rolling_std = math.sqrt(
+                sound_variance
+            )
+
+        else:
+
+            sound_rolling_std = 0.0
+
+        # ----------------------------------------------------
+        # Final unified data object
+        # ----------------------------------------------------
+
+        data["acc_x"] = acc_x
+        data["acc_y"] = acc_y
+        data["acc_z"] = acc_z
+
+        data["gyro_x"] = gyro_x
+        data["gyro_y"] = gyro_y
+        data["gyro_z"] = gyro_z
+
+        data["sound"] = sound
+
+        data["acc_magnitude"] = acc_magnitude
+        data["gyro_magnitude"] = gyro_magnitude
+        data["acc_variation"] = acc_variation
+
+        data["sound_deviation"] = sound_deviation
+
+        data["vibration_rolling_std"] = (
+            vibration_rolling_std
+        )
+
+        data["sound_rolling_std"] = (
+            sound_rolling_std
+        )
+
+        if "pc_timestamp" not in data:
+            data["pc_timestamp"] = datetime.now().isoformat()
+
+        if "turbine_id" not in data:
+            data["turbine_id"] = "WT-001"
+
+        # ----------------------------------------------------
+        # Shared history
+        # ----------------------------------------------------
+
+        hardware_history.append(data)
+
+        # ----------------------------------------------------
+        # Shared latest value
+        # ----------------------------------------------------
+
+        latest_hardware_data = data
+
+        return data
+
+    except Exception as error:
+
+        print("HARDWARE DATA UPDATE ERROR:")
+        print(error)
+
+        return None
+
+
+# ============================================================
+# ESP8266 SERIAL READER
 # ============================================================
 
 def read_serial_data():
 
-    global latest_hardware_data
     global serial_connection
 
     try:
@@ -42,11 +226,9 @@ def read_serial_data():
         )
 
         print("========================================")
-        print(" LIVE HARDWARE SERIAL")
+        print(" AERION LIVE ESP8266 HARDWARE")
         print("========================================")
-        print()
         print("ESP8266 connected:", PORT)
-        print()
 
         while True:
 
@@ -66,11 +248,9 @@ def read_serial_data():
             if len(parts) != 9:
                 continue
 
-            # ====================================================
-            # READ ESP8266 VALUES
-            # ====================================================
-
             data = {
+
+                "turbine_id": "WT-001",
 
                 "pc_timestamp": datetime.now().isoformat(),
 
@@ -84,104 +264,12 @@ def read_serial_data():
                 "gyro_y": float(parts[6]),
                 "gyro_z": float(parts[7]),
 
-                "sound": int(parts[8])
+                "sound": float(parts[8]),
+
+                "source": "esp8266"
             }
 
-            # ====================================================
-            # CALCULATE MAGNITUDES
-            # ====================================================
-
-            data["acc_magnitude"] = math.sqrt(
-                data["acc_x"] ** 2 +
-                data["acc_y"] ** 2 +
-                data["acc_z"] ** 2
-            )
-
-            data["gyro_magnitude"] = math.sqrt(
-                data["gyro_x"] ** 2 +
-                data["gyro_y"] ** 2 +
-                data["gyro_z"] ** 2
-            )
-
-            # ====================================================
-            # ADD TO HISTORY
-            # ====================================================
-
-            hardware_history.append(data)
-
-            # ====================================================
-            # CALCULATE ACCELERATION VARIATION
-            # ====================================================
-
-            acc_values = [
-                item["acc_magnitude"]
-                for item in hardware_history
-            ]
-
-            acc_mean = sum(acc_values) / len(acc_values)
-
-            data["acc_variation"] = abs(
-                data["acc_magnitude"] - acc_mean
-            )
-
-            # ====================================================
-            # CALCULATE SOUND DEVIATION
-            # ====================================================
-
-            sound_values = [
-                item["sound"]
-                for item in hardware_history
-            ]
-
-            sound_mean = sum(sound_values) / len(sound_values)
-
-            data["sound_deviation"] = abs(
-                data["sound"] - sound_mean
-            )
-
-            # ====================================================
-            # VIBRATION ROLLING STANDARD DEVIATION
-            # ====================================================
-
-            if len(acc_values) > 1:
-
-                acc_variance = sum(
-                    (value - acc_mean) ** 2
-                    for value in acc_values
-                ) / (len(acc_values) - 1)
-
-                data["vibration_rolling_std"] = math.sqrt(
-                    acc_variance
-                )
-
-            else:
-
-                data["vibration_rolling_std"] = 0.0
-
-            # ====================================================
-            # SOUND ROLLING STANDARD DEVIATION
-            # ====================================================
-
-            if len(sound_values) > 1:
-
-                sound_variance = sum(
-                    (value - sound_mean) ** 2
-                    for value in sound_values
-                ) / (len(sound_values) - 1)
-
-                data["sound_rolling_std"] = math.sqrt(
-                    sound_variance
-                )
-
-            else:
-
-                data["sound_rolling_std"] = 0.0
-
-            # ====================================================
-            # UPDATE LATEST DATA
-            # ====================================================
-
-            latest_hardware_data = data
+            update_hardware_data(data)
 
     except Exception as error:
 
@@ -189,11 +277,9 @@ def read_serial_data():
         print("LIVE HARDWARE ERROR:")
         print(error)
 
-        latest_hardware_data = None
-
 
 # ============================================================
-# START SERIAL THREAD
+# START HARDWARE SERVICE
 # ============================================================
 
 def start_hardware_service():
@@ -212,7 +298,7 @@ def start_hardware_service():
 
 
 # ============================================================
-# GET LATEST HARDWARE DATA
+# GET LATEST DATA
 # ============================================================
 
 def get_latest_hardware_data():
@@ -221,7 +307,7 @@ def get_latest_hardware_data():
 
 
 # ============================================================
-# GET HARDWARE HISTORY
+# GET HISTORY
 # ============================================================
 
 def get_hardware_history():

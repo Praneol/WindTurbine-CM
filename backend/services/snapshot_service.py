@@ -1,6 +1,8 @@
+
 from services.sensor_service import generate_sensor_data
-from services.prediction_service import predict_turbine_condition
+from services.hardware_prediction_service import predict_hardware_condition
 from services.health_service import calculate_health
+
 
 sensor_history = []
 
@@ -15,7 +17,7 @@ def get_turbine_snapshot():
     if len(sensor_history) > 100:
         sensor_history.pop()
 
-    prediction = predict_turbine_condition(sensor_data)
+    prediction = predict_hardware_condition(sensor_data)
 
     health = calculate_health(
         sensor_data,
@@ -32,3 +34,4 @@ def get_turbine_snapshot():
 def get_sensor_history():
 
     return sensor_history
+
